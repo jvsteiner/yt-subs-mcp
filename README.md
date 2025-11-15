@@ -44,24 +44,24 @@ Before using this MCP server, you must have the following tools installed:
 
 ## Installation
 
-### For Local Development
+### Quick Start (Using npx)
 
-1. Clone or download this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+No installation required! Just add to your MCP client configuration:
 
-3. Make the script executable:
-   ```bash
-   chmod +x index.js
-   ```
+```json
+{
+  "mcpServers": {
+    "yt-subs": {
+      "command": "npx",
+      "args": ["-y", "yt-subs-mcp"]
+    }
+  }
+}
+```
 
-### For Use with MCP Clients
+**Note:** You still need to have `yt-dlp` and `ffmpeg` installed on your system (see Prerequisites above).
 
-The server can be run using npx. Add it to your MCP client configuration:
-
-#### Claude Desktop Configuration
+### Claude Desktop Configuration
 
 Edit your Claude Desktop config file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -69,6 +69,22 @@ Edit your Claude Desktop config file:
 
 Add the server to the `mcpServers` section:
 
+**Option 1: Using npx (recommended)**
+```json
+{
+  "mcpServers": {
+    "yt-subs": {
+      "command": "npx",
+      "args": ["-y", "yt-subs-mcp"],
+      "env": {
+        "YT_SUBS_DOWNLOAD_DIR": "/path/to/your/transcripts"
+      }
+    }
+  }
+}
+```
+
+**Option 2: Using local installation**
 ```json
 {
   "mcpServers": {
@@ -80,20 +96,18 @@ Add the server to the `mcpServers` section:
 }
 ```
 
-Replace `/absolute/path/to/yt-subs/` with the actual path to this directory.
+### For Local Development
 
-#### Alternative: Using npx (if published to npm)
+1. Clone this repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-```json
-{
-  "mcpServers": {
-    "yt-subs": {
-      "command": "npx",
-      "args": ["yt-subs-mcp"]
-    }
-  }
-}
-```
+3. Make the script executable:
+   ```bash
+   chmod +x index.js
+   ```
 
 ## Usage
 
@@ -220,6 +234,29 @@ The server will run on stdio and wait for MCP protocol messages.
 ### Testing
 
 You can test the server using an MCP client or by sending JSON-RPC messages via stdio.
+
+### Publishing to npm
+
+If you want to publish your own version to npm:
+
+1. Update the package name in `package.json` to something unique
+2. Update the repository URLs to your GitHub repository
+3. Add your author information
+4. Login to npm:
+   ```bash
+   npm login
+   ```
+
+5. Publish:
+   ```bash
+   npm publish
+   ```
+
+**Before publishing, make sure to:**
+- Test the package locally using `npm pack` and `npm install -g ./yt-subs-mcp-1.0.0.tgz`
+- Update the version number following semver
+- Ensure README is up to date
+- Add appropriate tags and keywords
 
 ## License
 

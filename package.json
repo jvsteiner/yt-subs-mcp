@@ -8,16 +8,35 @@
     "yt-subs-mcp": "./index.js"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "prepublishOnly": "echo 'Remember to check dependencies are installed: yt-dlp, ffmpeg'"
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "youtube",
     "subtitles",
-    "transcripts"
+    "transcripts",
+    "youtube-subtitles",
+    "video-transcripts",
+    "yt-dlp",
+    "model-context-protocol"
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jvsteiner/yt-subs-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jvsteiner/yt-subs-mcp/issues"
+  },
+  "homepage": "https://github.com/jvsteiner/yt-subs-mcp#readme",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4"
   },

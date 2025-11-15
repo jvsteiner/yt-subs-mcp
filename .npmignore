@@ -1,0 +1,13 @@
+# Development files
+node_modules/
+*.log
+.DS_Store
+
+# Example files
+example-script.sh
+claude-config-example.json
+
+# Test outputs
+*.txt
+*.vtt
+*.srt
