@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "yt-subs": {
+      "command": "node",
+      "args": ["/Users/username/Code/yt-subs/index.js"],
+      "env": {
+        "YT_SUBS_DOWNLOAD_DIR": "/Users/username/Downloads/yts"
+      }
+    }
+  }
+}

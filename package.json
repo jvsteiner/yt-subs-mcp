@@ -1,0 +1,27 @@
+{
+  "name": "yt-subs-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for extracting YouTube video subtitles as clean text",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "yt-subs-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "youtube",
+    "subtitles",
+    "transcripts"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
