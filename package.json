@@ -22,16 +22,16 @@
     "yt-dlp",
     "model-context-protocol"
   ],
-  "author": "",
+  "author": "Jamie Steiner <jvsteiner@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jvsteiner/yt-subs-mcp.git"
+    "url": "https://github.com/jvsteiner/yt-subs.git"
   },
   "bugs": {
-    "url": "https://github.com/jvsteiner/yt-subs-mcp/issues"
+    "url": "https://github.com/jvsteiner/yt-subs/issues"
   },
-  "homepage": "https://github.com/jvsteiner/yt-subs-mcp#readme",
+  "homepage": "https://github.com/jvsteiner/yt-subs#readme",
   "files": [
     "index.js",
     "README.md",
