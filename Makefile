@@ -1,4 +1,4 @@
-.PHONY: help patch minor major publish test clean install
+≥.PHONY: help patch minor major publish test clean install
 
 # Default target
 help:
