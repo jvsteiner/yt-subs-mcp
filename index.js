@@ -49,7 +49,7 @@ class YouTubeSubtitlesMCPServer {
       tools: [
         {
           name: 'get_youtube_transcript',
-          description: 'Extract the subtitle/transcript text from a YouTube video URL. Use this tool when:\n- User provides a YouTube URL and wants to read/analyze the video content\n- User asks what a YouTube video is about or wants a summary\n- User needs to extract quotes or information from a YouTube video\n- User wants to search through video content without watching\n- User needs the transcript saved to a file for reference\n\nReturns the clean text content of the video\'s English subtitles (auto-generated or manual). Requires yt-dlp and ffmpeg to be installed on the system.',
+          description: 'Extract the subtitle/transcript text from a YouTube video URL. Always use this tool when:\n- User provides a YouTube URL and wants to read/analyze the video content\n- User asks what a YouTube video is about or wants a summary\n- User needs to extract quotes or information from a YouTube video\n- User wants to search through video content without watching\n- User needs the transcript saved to a file for reference\n\nReturns the clean text content of the video\'s English subtitles (auto-generated or manual).',
           inputSchema: {
             type: 'object',
             properties: {
