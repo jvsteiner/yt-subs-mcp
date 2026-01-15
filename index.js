@@ -98,28 +98,26 @@ class YouTubeSubtitlesMCPServer {
     }
   }
 
-  async getVideoId(url) {
-    try {
-      const { stdout } = await execAsync(
-        `yt-dlp --cookies-from-browser chrome --print id "${url}" 2>/dev/null`
-      );
-      const videoId = stdout.trim();
-
-      if (!videoId) {
-        throw new Error('Could not extract video ID from URL');
-      }
-
-      return videoId;
-    } catch (error) {
-      throw new Error(`Failed to get video ID: ${error.message}`);
+  getVideoId(url) {
+    // Extract video ID from URL (handles youtu.be and youtube.com formats)
+    const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (shortUrlMatch) {
+      return shortUrlMatch[1];
     }
+
+    const longUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (longUrlMatch) {
+      return longUrlMatch[1];
+    }
+
+    throw new Error('Could not extract video ID from URL');
   }
 
   async downloadSubtitles(url, videoId, downloadsDir) {
     const vttFile = join(downloadsDir, `${videoId}.en.vtt`);
 
     try {
-      const command = `yt-dlp --cookies-from-browser chrome --write-subs --skip-download --sub-langs "en" --sub-format vtt --write-auto-subs -o "${downloadsDir}/${videoId}.%(ext)s" "${url}"`;
+      const command = `yt-dlp --write-subs --skip-download --sub-langs "en" --sub-format vtt --write-auto-subs -o "${downloadsDir}/${videoId}.%(ext)s" "${url}"`;
 
       await execAsync(command);
 
@@ -179,7 +177,7 @@ class YouTubeSubtitlesMCPServer {
       const downloadsDir = this.getDownloadsDirectory();
       await mkdir(downloadsDir, { recursive: true });
 
-      const videoId = await this.getVideoId(url);
+      const videoId = this.getVideoId(url);
 
       const vttFile = await this.downloadSubtitles(url, videoId, downloadsDir);
 
