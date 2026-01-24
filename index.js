@@ -117,7 +117,7 @@ class YouTubeSubtitlesMCPServer {
     const vttFile = join(downloadsDir, `${videoId}.en.vtt`);
 
     try {
-      const command = `yt-dlp --write-subs --skip-download --sub-langs "en" --sub-format vtt --write-auto-subs -o "${downloadsDir}/${videoId}.%(ext)s" "${url}"`;
+      const command = `yt-dlp --cookies-from-browser chrome --remote-components ejs:github --write-subs --skip-download --sub-langs "en" --sub-format vtt --write-auto-subs -o "${downloadsDir}/${videoId}.%(ext)s" "${url}"`;
 
       await execAsync(command);
 
