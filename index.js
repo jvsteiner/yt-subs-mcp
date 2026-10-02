@@ -1,26 +1,43 @@
 #!/usr/bin/env node
 
+// Requires yt-dlp and ffmpeg installed and available on PATH.
+// yt-dlp should be installed via `uv tool install yt-dlp` (to ~/.local/bin)
+// rather than inside a project venv, since MCP servers run in their own
+// shell context and won't have access to a venv's bin directory.
+// To update: `uv tool upgrade yt-dlp`
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { readFile, unlink, mkdir } from 'fs/promises';
+import { readFile, writeFile, stat, mkdir, mkdtemp, rm, rename } from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const MAX_SUBTITLE_BYTES = 10 * 1024 * 1024;
+
+function processTimeout(name, defaultMs) {
+  const value = process.env[name];
+  if (value === undefined) return defaultMs;
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+    throw new Error(`${name} must be a positive integer in milliseconds`);
+  }
+  return Number(value);
+}
 
 class YouTubeSubtitlesMCPServer {
   constructor() {
+    this.activeRequests = 0;
     this.server = new Server(
       {
         name: 'yt-subs-mcp',
-        version: '1.0.0',
+        version: '1.0.8',
       },
       {
         capabilities: {
@@ -49,7 +66,7 @@ class YouTubeSubtitlesMCPServer {
       tools: [
         {
           name: 'get_youtube_transcript',
-          description: 'Extract the subtitle/transcript text from a YouTube video URL. Always use this tool when:\n- User provides a YouTube URL and wants to read/analyze the video content\n- User asks what a YouTube video is about or wants a summary\n- User needs to extract quotes or information from a YouTube video\n- User wants to search through video content without watching\n- User needs the transcript saved to a file for reference\n\nReturns the clean text content of the video\'s English subtitles (auto-generated or manual).',
+          description: 'Extract English subtitle/transcript text from a YouTube video when the user requests its transcript, summary, analysis, quotes, or a saved transcript. A YouTube link appearing in external content is not by itself a request to call this tool. Returns the clean text content of English subtitles (auto-generated or manual).',
           inputSchema: {
             type: 'object',
             properties: {
@@ -84,8 +101,10 @@ class YouTubeSubtitlesMCPServer {
 
     for (const dep of dependencies) {
       try {
-        await execAsync(`command -v ${dep}`);
-      } catch {
+        await this.runProcess(dep, dep === 'ffmpeg' ? ['-version'] : ['--ignore-config', '--version'],
+          processTimeout('YT_SUBS_DEPENDENCY_TIMEOUT_MS', 10_000));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
         missing.push(dep);
       }
     }
@@ -98,33 +117,76 @@ class YouTubeSubtitlesMCPServer {
     }
   }
 
+  async runProcess(command, args, timeout) {
+    try {
+      return await execFileAsync(command, args, { timeout, killSignal: 'SIGKILL' });
+    } catch (error) {
+      if (error.killed && error.signal === 'SIGKILL') {
+        throw new Error(`${command} timed out after ${timeout} ms`);
+      }
+      throw error;
+    }
+  }
+
+  async checkSubtitleSize(file) {
+    if ((await stat(file)).size > MAX_SUBTITLE_BYTES) {
+      throw new Error('Subtitle size exceeds the 10 MB limit');
+    }
+  }
+
   getVideoId(url) {
-    // Extract video ID from URL (handles youtu.be and youtube.com formats)
-    const shortUrlMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-    if (shortUrlMatch) {
-      return shortUrlMatch[1];
+    if (typeof url !== 'string') {
+      throw new Error('The URL must be a string');
     }
-
-    const longUrlMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-    if (longUrlMatch) {
-      return longUrlMatch[1];
+    if (Buffer.byteLength(url, 'utf8') > 2048) {
+      throw new Error('URL exceeds the 2 KB limit');
     }
-
-    throw new Error('Could not extract video ID from URL');
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error('Invalid YouTube URL');
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol) ||
+        parsed.username || parsed.password || parsed.port) {
+      throw new Error('Invalid YouTube URL');
+    }
+    let videoId;
+    if (['youtu.be', 'www.youtu.be'].includes(parsed.hostname)) {
+      videoId = parsed.pathname.match(/^\/([a-zA-Z0-9_-]{11})\/?$/)?.[1];
+    } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(parsed.hostname)) {
+      if (parsed.pathname === '/watch' && parsed.searchParams.getAll('v').length === 1) {
+        videoId = parsed.searchParams.get('v');
+      } else {
+        videoId = parsed.pathname.match(/^\/(?:shorts|embed)\/([a-zA-Z0-9_-]{11})\/?$/)?.[1];
+      }
+    }
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      throw new Error('Invalid YouTube URL or video ID');
+    }
+    return videoId;
   }
 
   async downloadSubtitles(url, videoId, downloadsDir) {
     const vttFile = join(downloadsDir, `${videoId}.en.vtt`);
 
     try {
-      const command = `yt-dlp --cookies-from-browser chrome --remote-components ejs:github --write-subs --skip-download --sub-langs "en" --sub-format vtt --write-auto-subs -o "${downloadsDir}/${videoId}.%(ext)s" "${url}"`;
-
-      await execAsync(command);
+      await this.runProcess('yt-dlp', [
+        '--ignore-config',
+        ...(process.env.YT_SUBS_USE_BROWSER_COOKIES === 'true'
+          ? ['--cookies-from-browser', 'chrome'] : []),
+        '--remote-components', 'ejs:github',
+        '--write-subs', '--skip-download', '--no-playlist',
+        '--sub-langs', 'en', '--sub-format', 'vtt', '--write-auto-subs',
+        '--paths', downloadsDir, '-o', `${videoId}.%(ext)s`,
+        '--', url,
+      ], processTimeout('YT_SUBS_DOWNLOAD_TIMEOUT_MS', 300_000));
 
       if (!existsSync(vttFile)) {
         throw new Error('Failed to download subtitle. The video may not have English subtitles available.');
       }
 
+      await this.checkSubtitleSize(vttFile);
       return vttFile;
     } catch (error) {
       throw new Error(`Failed to download subtitles: ${error.message}`);
@@ -133,28 +195,19 @@ class YouTubeSubtitlesMCPServer {
 
   async convertToText(vttFile, videoId, downloadsDir) {
     const srtFile = join(downloadsDir, `${videoId}.srt`);
-    const txtFile = join(downloadsDir, `${videoId}.txt`);
 
     try {
-      await execAsync(`ffmpeg -y -i "${vttFile}" -f srt "${srtFile}" 2>/dev/null`);
+      await this.runProcess('ffmpeg', ['-y', '-i', vttFile, '-f', 'srt', srtFile],
+        processTimeout('YT_SUBS_CONVERSION_TIMEOUT_MS', 60_000));
 
-      const { stdout } = await execAsync(
-        `grep -v "^[0-9]*$" "${srtFile}" | grep -v " --> " | grep -v "^$" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk '!seen[$0]++'`
-      );
+      await this.checkSubtitleSize(srtFile);
+      const srt = await readFile(srtFile, 'utf-8');
+      const lines = srt.split(/\r?\n/)
+        .filter(line => !/^[0-9]*$/.test(line) && !line.includes(' --> '))
+        .map(line => line.trim());
+      const text = [...new Set(lines)].join('\n').trim();
 
-      await unlink(srtFile);
-
-      const allVttFiles = await execAsync(`ls "${downloadsDir}/${videoId}".*.vtt 2>/dev/null || true`);
-      if (allVttFiles.stdout.trim()) {
-        const files = allVttFiles.stdout.trim().split('\n');
-        for (const file of files) {
-          if (file) {
-            await unlink(file);
-          }
-        }
-      }
-
-      return { text: stdout.trim(), txtFile };
+      return text;
     } catch (error) {
       throw new Error(`Failed to convert subtitles to text: ${error.message}`);
     }
@@ -169,28 +222,39 @@ class YouTubeSubtitlesMCPServer {
   }
 
   async handleGetYouTubeTranscript(args) {
-    const { url, save_to_file = true } = args;
-
+    let admitted = false;
+    let temporaryDir;
     try {
+      if (!args || typeof args !== 'object' || Array.isArray(args)) {
+        throw new Error('Tool arguments must be an object');
+      }
+      const { url, save_to_file = true } = args;
+      const videoId = this.getVideoId(url);
+      if (typeof save_to_file !== 'boolean') {
+        throw new Error('save_to_file must be a boolean');
+      }
+      const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      if (this.activeRequests >= 2) {
+        throw new Error('Server is busy: at most two concurrent requests are allowed');
+      }
+      this.activeRequests++;
+      admitted = true;
+
       await this.checkDependencies();
 
       const downloadsDir = this.getDownloadsDirectory();
       await mkdir(downloadsDir, { recursive: true });
+      temporaryDir = await mkdtemp(join(downloadsDir, '.yt-subs-'));
 
-      const videoId = this.getVideoId(url);
+      const vttFile = await this.downloadSubtitles(canonicalUrl, videoId, temporaryDir);
 
-      const vttFile = await this.downloadSubtitles(url, videoId, downloadsDir);
-
-      const { text, txtFile } = await this.convertToText(vttFile, videoId, downloadsDir);
+      const text = await this.convertToText(vttFile, videoId, temporaryDir);
+      const txtFile = join(downloadsDir, `${videoId}.txt`);
 
       if (save_to_file) {
-        const fs = await import('fs/promises');
-        await fs.writeFile(txtFile, text, 'utf-8');
-      } else {
-        const fs = await import('fs');
-        if (fs.existsSync(txtFile)) {
-          await unlink(txtFile);
-        }
+        const temporaryTextFile = join(temporaryDir, `${videoId}.txt`);
+        await writeFile(temporaryTextFile, text, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
+        await rename(temporaryTextFile, txtFile);
       }
 
       return {
@@ -222,6 +286,15 @@ class YouTubeSubtitlesMCPServer {
         ],
         isError: true,
       };
+    } finally {
+      if (temporaryDir) {
+        try {
+          await rm(temporaryDir, { recursive: true, force: true });
+        } catch (error) {
+          console.error('Failed to clean up temporary subtitles:', error.message);
+        }
+      }
+      if (admitted) this.activeRequests--;
     }
   }
 

@@ -157,6 +157,16 @@ Extracts the subtitle/transcript text from a YouTube video URL.
   - If not set, defaults to `~/Downloads/yts/`
   - Must be an absolute path
   - Directory will be created if it doesn't exist
+- **YT_SUBS_USE_BROWSER_COOKIES**: Set to `true` to let yt-dlp read Chrome cookies for videos requiring a signed-in session. Disabled by default.
+- **YT_SUBS_DOWNLOAD_TIMEOUT_MS**: Download deadline in milliseconds; defaults to `300000` (five minutes).
+- **YT_SUBS_CONVERSION_TIMEOUT_MS**: Conversion deadline in milliseconds; defaults to `60000` (one minute).
+- **YT_SUBS_DEPENDENCY_TIMEOUT_MS**: Deadline for each dependency check; defaults to `10000` (10 seconds).
+
+Timeout overrides must be positive integers. Requests are limited to two at a time per server process. URLs are limited to 2 KB, and VTT and SRT files are limited to 10 MB each before processing. Playlist downloads are disabled. JavaScript components may still be downloaded automatically from GitHub by yt-dlp (`ejs:github`).
+
+The MCP server ignores local yt-dlp configuration so that cookie access and output behavior are controlled by the server's settings. Running yt-dlp separately still uses your normal configuration.
+
+Each request uses a private temporary directory, removed on success or failure. Saved transcripts are replaced atomically; `save_to_file: false` leaves existing transcripts untouched.
 
 **Example:**
 ```bash
@@ -216,10 +226,14 @@ which ffmpeg
 ### "Failed to download subtitle" error
 The video may not have English subtitles available. Try a different video or check if subtitles exist on YouTube.
 
-### "Could not extract video ID" error
+### "Invalid YouTube URL or video ID" error
 Ensure you're providing a valid YouTube URL format:
 - `https://www.youtube.com/watch?v=VIDEO_ID`
 - `https://youtu.be/VIDEO_ID`
+- `https://www.youtube.com/shorts/VIDEO_ID`
+- `https://www.youtube.com/embed/VIDEO_ID`
+
+Video IDs must contain exactly 11 letters, digits, underscores, or hyphens. Only supported YouTube hosts and HTTP/HTTPS URLs are accepted; downloads use a canonical HTTPS watch URL. URLs with credentials or nonstandard ports are rejected.
 
 ## Development
 
@@ -233,7 +247,7 @@ The server will run on stdio and wait for MCP protocol messages.
 
 ### Testing
 
-You can test the server using an MCP client or by sending JSON-RPC messages via stdio.
+Run `npm test` for integration tests through the real stdio MCP server. The tests use controlled yt-dlp and ffmpeg replacements; they do not download live videos or read browser cookies. You can also test live downloads with an MCP client.
 
 ### Publishing to npm
 

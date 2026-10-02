@@ -1,6 +1,6 @@
 {
   "name": "yt-subs-mcp",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "MCP server for extracting YouTube video subtitles as clean text",
   "type": "module",
   "main": "index.js",
@@ -8,6 +8,7 @@
     "yt-subs-mcp": "./index.js"
   },
   "scripts": {
+    "test": "node --test",
     "start": "node index.js",
     "prepublishOnly": "echo 'Remember to check dependencies are installed: yt-dlp, ffmpeg'"
   },
@@ -38,7 +39,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4"
+    "@modelcontextprotocol/sdk": "^1.32.0"
   },
   "engines": {
     "node": ">=18.0.0"
