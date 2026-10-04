@@ -37,7 +37,7 @@ class YouTubeSubtitlesMCPServer {
     this.server = new Server(
       {
         name: 'yt-subs-mcp',
-        version: '1.0.8',
+        version: '1.0.9',
       },
       {
         capabilities: {
@@ -174,7 +174,9 @@ class YouTubeSubtitlesMCPServer {
       await this.runProcess('yt-dlp', [
         '--ignore-config',
         ...(process.env.YT_SUBS_USE_BROWSER_COOKIES === 'true'
-          ? ['--cookies-from-browser', 'chrome'] : []),
+          // Plain `chrome` makes yt-dlp read whichever profile's cookie file
+          // changed last, so name the profile.
+          ? ['--cookies-from-browser', process.env.YT_SUBS_COOKIES_BROWSER || 'chrome:Default'] : []),
         '--remote-components', 'ejs:github',
         '--write-subs', '--skip-download', '--no-playlist',
         '--sub-langs', 'en', '--sub-format', 'vtt', '--write-auto-subs',

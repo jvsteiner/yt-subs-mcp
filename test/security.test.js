@@ -440,10 +440,21 @@ for (const [name, env, enabled] of [
       assert.equal(data.success, true);
       const args = JSON.parse(await readFile(join(root, 'arguments.json'), 'utf8'));
       assert.equal(args.includes('--cookies-from-browser'), enabled);
-      if (enabled) assert.equal(args[args.indexOf('--cookies-from-browser') + 1], 'chrome');
+      if (enabled) assert.equal(args[args.indexOf('--cookies-from-browser') + 1], 'chrome:Default');
     });
   });
 }
+
+test('browser cookies: the browser setting chooses the profile', async () => {
+  await withServer(async ({ root, request }) => {
+    const { data } = await request(`https://youtu.be/${videoId}`, undefined, {
+      YT_SUBS_USE_BROWSER_COOKIES: 'true', YT_SUBS_COOKIES_BROWSER: 'chrome:Profile 2',
+    });
+    assert.equal(data.success, true);
+    const args = JSON.parse(await readFile(join(root, 'arguments.json'), 'utf8'));
+    assert.equal(args[args.indexOf('--cookies-from-browser') + 1], 'chrome:Profile 2');
+  });
+});
 
 test('failed requests release server capacity', async () => {
   await withServer(async ({ request, openSession }) => {

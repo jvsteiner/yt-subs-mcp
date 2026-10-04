@@ -158,6 +158,7 @@ Extracts the subtitle/transcript text from a YouTube video URL.
   - Must be an absolute path
   - Directory will be created if it doesn't exist
 - **YT_SUBS_USE_BROWSER_COOKIES**: Set to `true` to let yt-dlp read Chrome cookies for videos requiring a signed-in session. Disabled by default.
+- **YT_SUBS_COOKIES_BROWSER**: Browser and profile that yt-dlp reads cookies from, in yt-dlp's `BROWSER[:PROFILE]` form, for example `chrome:Profile 2` or `firefox`. Defaults to `chrome:Default`, Chrome's first profile.
 - **YT_SUBS_DOWNLOAD_TIMEOUT_MS**: Download deadline in milliseconds; defaults to `300000` (five minutes).
 - **YT_SUBS_CONVERSION_TIMEOUT_MS**: Conversion deadline in milliseconds; defaults to `60000` (one minute).
 - **YT_SUBS_DEPENDENCY_TIMEOUT_MS**: Deadline for each dependency check; defaults to `10000` (10 seconds).
